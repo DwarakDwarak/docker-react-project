@@ -1,0 +1,9 @@
+sudo: requried
+services:
+  - docker
+
+before_install:
+  - docker build -t dwarakesh/docker-react-project -f Dockerfile.dev .
+
+script:
+  - docker run --e CI=true dwarakesh/docker-react-project npm run test -- --coverage
