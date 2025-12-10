@@ -1,0 +1,44 @@
+stages:
+  - build
+  - docker
+
+variables:
+  # Avoids Docker TLS problems with docker:dind
+  DOCKER_TLS_CERTDIR: ""
+  # keep short images readable
+  IMAGE_TAG: "${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}"
+
+# Build the React app
+build_app:
+  image: node:20-alpine
+  stage: build
+  cache:
+    paths:
+      - node_modules/
+  script:
+    - npm ci # clean install
+    - npm run build # creates build/
+  artifacts:
+    paths:
+      - build
+    expire_in: 1 hour
+
+# Build and push Docker image to GitLab Container Registry
+docker_build_and_push:
+  image: docker:24
+  stage: docker
+  services:
+    - name: docker:24-dind
+      alias: docker
+  variables:
+    DOCKER_DRIVER: overlay2
+  before_script:
+    - echo "Logging in to GitLab Container Registry..."
+    - echo "$CI_JOB_TOKEN" | docker login -u gitlab-ci-token --password-stdin "$CI_REGISTRY"
+  script:
+    - docker build -t "$IMAGE_TAG" .
+    - docker push "$IMAGE_TAG"
+  needs:
+    - build_app
+  only:
+    - branches
